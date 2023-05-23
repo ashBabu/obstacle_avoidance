@@ -57,12 +57,15 @@ void detectObstacles(float & distance, const cv::Mat & depth_map, cv::Mat & outp
 
             // Printing the warning text with object distance
             char text[10];
-            std::sprintf(text, "%.2f cm",mean.at<double>(0,0));
+            std::sprintf(text, "%.2f m",mean.at<double>(0,0));
             std::cout<< '\a'<< std::endl;
-            cv::putText(output_canvas, "WARNING!", cv::Point2f(box.x + 5, box.y-40), 1, 2, cv::Scalar(0,0,255), 2, 2);
-            cv::putText(output_canvas, "Object at", cv::Point2f(box.x + 5, box.y), 1, 2, cv::Scalar(0,0,255), 2, 2);
-            cv::putText(output_canvas, text, cv::Point2f(box.x + 5, box.y+40), 1, 2, cv::Scalar(0,0,255), 2, 2);
-
+            if (box.x > 0.05) {
+                cv::putText(output_canvas, "WARNING!", cv::Point2f(box.x + 5, box.y - 40), 1, 2, cv::Scalar(0, 0, 255),
+                            2, 2);
+                cv::putText(output_canvas, "Object at", cv::Point2f(box.x + 5, box.y), 1, 2, cv::Scalar(0, 0, 255), 2,
+                            2);
+                cv::putText(output_canvas, text, cv::Point2f(box.x + 5, box.y + 40), 1, 2, cv::Scalar(0, 0, 255), 2, 2);
+            }
         }
     }
     else

@@ -6,9 +6,11 @@
 #include <opencv2/opencv.hpp>   // Include OpenCV API
 
 #include <fstream>
-
+#include <cv-helpers.hpp>
 #include "tiny-profiler.h"
 #include "downsample.h"
+
+using namespace cv;
 
 rs2_intrinsics operator/(const rs2_intrinsics& i, int f)
 {
@@ -240,6 +242,50 @@ private:
     }
 };
 
+void getHistogram(const Mat & depth)
+{
+
+    int histSize = 64;
+
+    // Set the ranges ( for B,G,R) )
+
+    float range[] = { 0, 65535 } ;
+
+    const float* histRange = { range };
+
+    bool uniform = true; bool accumulate = false;
+
+    Mat depth_hist;
+
+    // Compute the histograms:
+
+    calcHist( &depth, 1, 0, Mat(), depth_hist, 1, &histSize, &histRange, uniform, accumulate );
+
+    // Draw the histograms for depth
+
+    int hist_w = 800; int hist_h = 800;
+
+    int bin_w = cvRound( (double) hist_w/histSize );
+
+    Mat histImage( hist_h, hist_w, CV_8UC1, 1 );
+
+    // Normalize the result to [ 0, histImage.rows ]
+
+    normalize(depth_hist, depth_hist, 0, histImage.rows, NORM_MINMAX, -1, Mat() );
+
+    // Draw for each channel
+    for( int i = 1; i < histSize; i++ )
+    {
+        line( histImage, Point( bin_w*(i-1), hist_h - cvRound(depth_hist.at<float>(i-1)) ) ,
+              Point( bin_w*(i), hist_h - cvRound(depth_hist.at<float>(i)) ),
+              Scalar( 255), 2, 8, 0  );
+    }
+
+    // Display
+    namedWindow("calcHist Demo", WINDOW_AUTOSIZE );
+    imshow("calcHist Demo", histImage );
+}
+
 int main(int argc, char * argv[]) try
 {
     rs2::colorizer color_map;
@@ -259,25 +305,6 @@ int main(int argc, char * argv[]) try
     namedWindow(window_name, WINDOW_AUTOSIZE);
 
     high_confidence_filter filter;
-/*
-
-    // See camera-settings.json next to the source / binaries
-    std::ifstream file("./camera-settings.json");
-    if (file.good())
-    {
-        std::string str((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-
-        auto prof = cfg.resolve(pipe);
-        if (auto advanced = prof.get_device().as<rs400::advanced_mode>())
-        {
-            advanced.load_json(str);
-        }
-    }
-    else
-    {
-        std::cout << "Couldn't find camera-settings.json, skipping custom settings!" << std::endl;
-    }
-*/
 
     pipe.start(cfg);
 
@@ -288,7 +315,13 @@ int main(int argc, char * argv[]) try
         data = data.apply_filter(filter);
 
         rs2::frame depth = data.get_depth_frame().apply_filter(color_map);
-
+        // Convert RealSense frame to OpenCV matrix:
+        cv::Mat dm = frame_to_mat(data.get_depth_frame());
+        dm.convertTo( dm, CV_32F );
+        dm = dm * data.get_depth_frame().get_units();
+//        auto depth_mat = depth_frame_to_meters(data.get_depth_frame());
+//        auto arr = depth.get_data();
+        getHistogram(dm);
         // Query frame size (width and height)
         const int w = depth.as<rs2::video_frame>().get_width();
         const int h = depth.as<rs2::video_frame>().get_height();
